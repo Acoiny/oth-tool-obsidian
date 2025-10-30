@@ -16,7 +16,7 @@ interface MyPluginSettings {
 
 
 const DEFAULT_SETTINGS: MyPluginSettings = {
-	pythonPath: '/usr/bin/python3',
+	pythonPath: 'python3',
 	othToolPath: '',
 	mensaplanFile: 'Mensaplan.md',
 	cloneRepo: false,
