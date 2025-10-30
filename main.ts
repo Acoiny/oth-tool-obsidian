@@ -158,9 +158,8 @@ export default class OthTool extends Plugin {
 
 			if (this.settings.autoOpen) {
 				const file = this.app.vault.getAbstractFileByPath(this.settings.mensaplanFile);
-				if (file && file instanceof TFile) {
-					this.app.workspace.activeLeaf?.openFile(file);
-				}
+				if (file)
+					this.app.workspace.openLinkText(this.settings.mensaplanFile, '', false);
 			}
 		});
 	}
@@ -226,6 +225,16 @@ class SampleSettingTab extends PluginSettingTab {
 				.setValue(this.plugin.settings.cloneRepo)
 				.onChange(async value => {
 					this.plugin.settings.cloneRepo = value;
+					await this.plugin.saveSettings();
+				}));
+
+		new Setting(containerEl)
+			.setName('Auto open')
+			.setDesc('Automatically open the mensaplan after fetching it')
+			.addToggle(cp => cp
+				.setValue(this.plugin.settings.autoOpen)
+				.onChange(async value => {
+					this.plugin.settings.autoOpen = value;
 					await this.plugin.saveSettings();
 				}));
 
