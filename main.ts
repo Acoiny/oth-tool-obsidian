@@ -1,15 +1,16 @@
-import { App, Editor, FileSystemAdapter, MarkdownView, Modal, Notice, Plugin, PluginManifest, PluginSettingTab, Setting } from 'obsidian';
+import { App, Editor, FileSystemAdapter, MarkdownView, Modal, Notice, Plugin, PluginSettingTab, Setting, TFile } from 'obsidian';
 
 import { exec } from 'child_process';
-import { statSync, constants, existsSync, rm } from 'fs';
+import { existsSync, rm } from 'fs';
 
 // Remember to rename these classes and interfaces!
 
 interface MyPluginSettings {
 	pythonPath: string;
 	othToolPath: string;
-	cloneRepo: boolean;
 	mensaplanFile: string;
+	cloneRepo: boolean;
+	autoOpen: boolean; // automatically open the mensaplan after pulling it
 }
 
 
@@ -17,8 +18,9 @@ interface MyPluginSettings {
 const DEFAULT_SETTINGS: MyPluginSettings = {
 	pythonPath: '/usr/bin/python3',
 	othToolPath: '',
-	cloneRepo: false,
 	mensaplanFile: 'Mensaplan.md',
+	cloneRepo: false,
+	autoOpen: true,
 }
 
 export default class OthTool extends Plugin {
@@ -28,6 +30,8 @@ export default class OthTool extends Plugin {
 	oth_tool_repo_path: string;
 
 	vault_base_path: string;
+
+	venv_data: { basePath: string, python: string }
 
 	readonly oth_tool_repo_url: string = 'https://github.com/Acoiny/oth-scrape-tool';
 
@@ -43,7 +47,7 @@ export default class OthTool extends Plugin {
 		this.oth_tool_repo_path = vaultPath + '/' + this.manifest.dir + '/oth-scrape-tool';
 
 		if (this.settings.cloneRepo) {
-			this.cloneRepoIfNotExists(this.oth_tool_repo_url, this.oth_tool_repo_path);
+			this.updateRepo();
 		}
 
 		// This adds a simple command that can be triggered anywhere
@@ -51,7 +55,7 @@ export default class OthTool extends Plugin {
 			id: 'fetch-oth-mensaplan',
 			name: 'Fetch OTH-Mensaplan',
 			callback: () => {
-				this.fetchMensaplan(this);
+				this.fetchMensaplan();
 				//new ErrorModal(this.app, "Unable to fetch mensaplan").open();
 			}
 		});
@@ -60,7 +64,7 @@ export default class OthTool extends Plugin {
 			id: 'clone-oth-scrape-tool',
 			name: 'Clone the oth-scrape-tool',
 			callback: () => {
-				this.cloneRepoIfNotExists(this.oth_tool_repo_url, this.oth_tool_repo_path);
+				this.updateRepo();
 			}
 		});
 
@@ -96,46 +100,69 @@ export default class OthTool extends Plugin {
 
 	}
 
-	cloneRepoIfNotExists(repoUrl: string, path: string) {
-		if (existsSync(path)) return;
+	/**
+	 * Executes git pull inside the repo,
+	 * or freshly clones it if it isn't present
+	 */
+	updateRepo() {
+		if (!existsSync(this.oth_tool_repo_path)) {
+			this.cloneRepoIfNotExists();
+			return;
+		}
+		const cmd = `cd ${this.oth_tool_repo_path} && git pull`;
+		console.log(cmd);
+		exec(cmd, (error, stdout, stderr) => {
+			if (error) {
+				new OthToolModal(this.app, `Error git pull: ${error}`).open();
+				return;
+			}
+			console.log(stdout);
+			if (stderr)
+				console.error(stderr);
+		});
+	}
 
-		const cmd = `git clone ${repoUrl} ${path}`;
+	cloneRepoIfNotExists() {
+		if (existsSync(this.oth_tool_repo_path)) return;
+
+		const cmd = `git clone ${this.oth_tool_repo_url} ${this.oth_tool_repo_path}`;
 
 		exec(cmd, (error, stdout, stderr) => {
 			if (error) {
 				new OthToolModal(this.app, `Error on clone: ${error}`).open();
 				return;
 			}
+			console.log(stdout);
 			if (stderr)
-				console.log(stderr);
+				console.error(stderr);
 		});
+
+		// now create the venv
 	}
 
-	// pullMensatool(plugin: OthTool) {
-	// 	const cmd = 'git clone https://github.com/Acoiny/oth-scrape-tool';
-	// 	const path_to_repo = plugin.vaultPath + '/' + plugin.manifest.dir;
-	// 	exec('pwd', (error, stdout, stderr) => {
-	// 		if (error) {
-	// 		}
-	// 		console.log("Stdout: ", stdout);
-	// 		console.log(plugin.vaultPath + '/' + plugin.manifest.dir);
-	// 	});
-	// }
-
-	fetchMensaplan(plugin: OthTool) {
+	fetchMensaplan() {
 		const pythonPath = this.settings.pythonPath;
-		const othTool = this.settings.othToolPath;
 		const mensaplan = this.settings.mensaplanFile;
-
-
 
 		const cmd = `"${pythonPath}" "${this.oth_tool_repo_path + '/oth_tool.py'}" m -mt > "${this.vault_base_path + '/' + mensaplan}"`
 		console.log("Executing: ", cmd);
-		// exec(cmd, (error, stdout, stderr) => {
-		// 	if (error) {
-		// 		new ErrorModal(this.app, `Error on getting mensaplan: ${error}`);
-		// 	}
-		// });
+		exec(cmd, (error, stdout, stderr) => {
+			if (error) {
+				new OthToolModal(this.app, `Error on getting mensaplan: ${error}`).open();
+				return;
+			}
+
+			console.log(stdout);
+			if (stderr)
+				console.error(stderr);
+
+			if (this.settings.autoOpen) {
+				const file = this.app.vault.getAbstractFileByPath(this.settings.mensaplanFile);
+				if (file && file instanceof TFile) {
+					this.app.workspace.activeLeaf?.openFile(file);
+				}
+			}
+		});
 	}
 
 	async loadSettings() {
@@ -147,16 +174,6 @@ export default class OthTool extends Plugin {
 	}
 }
 
-/*
-* Checks if a file is executable. Used to check if the path to the
-* python executable is valid
-*/
-function isFileExecutable(fileName: string): boolean {
-	const f = statSync(fileName);
-	const isExectuable = !!(f.mode & constants.X_OK);
-	console.log("Is exec: ", isExectuable);
-	return isExectuable;
-}
 
 class OthToolModal extends Modal {
 	message: string;
@@ -210,7 +227,7 @@ class SampleSettingTab extends PluginSettingTab {
 				.onChange(async value => {
 					this.plugin.settings.cloneRepo = value;
 					await this.plugin.saveSettings();
-				}))
+				}));
 
 		new Setting(containerEl)
 			.setName('Mensaplan.md')
