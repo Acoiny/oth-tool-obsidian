@@ -1,7 +1,7 @@
 import { App, Editor, FileSystemAdapter, MarkdownView, Modal, Notice, Plugin, PluginSettingTab, Setting, TFile } from 'obsidian';
 
 import { exec } from 'child_process';
-import { existsSync, rm } from 'fs';
+import { existsSync, rm, stat } from 'fs';
 
 // Remember to rename these classes and interfaces!
 
@@ -11,6 +11,7 @@ interface MyPluginSettings {
 	mensaplanFile: string;
 	cloneRepo: boolean;
 	autoOpen: boolean; // automatically open the mensaplan after pulling it
+	fetchOnFirstOpen: boolean; // fetch the mensaplan, if no mensaplan file from today has been found
 }
 
 
@@ -21,6 +22,7 @@ const DEFAULT_SETTINGS: MyPluginSettings = {
 	mensaplanFile: 'Mensaplan.md',
 	cloneRepo: false,
 	autoOpen: true,
+	fetchOnFirstOpen: false,
 }
 
 export default class OthTool extends Plugin {
@@ -48,6 +50,28 @@ export default class OthTool extends Plugin {
 
 		if (this.settings.cloneRepo) {
 			this.updateRepo();
+		}
+
+		if (this.settings.fetchOnFirstOpen) {
+			stat(this.vault_base_path + '/' + this.settings.mensaplanFile, (err, stats) => {
+				if (err) {
+					// file doesn't exist!
+					console.log(err);
+					this.fetchMensaplan();
+					return;
+				}
+
+				const today = new Date();
+				const acc = stats.mtime;
+
+				if (!(today.getFullYear() == acc.getFullYear() &&
+					today.getMonth() == acc.getMonth() &&
+					today.getDate() == acc.getDate())) {
+					// NOT on the same day!
+					this.fetchMensaplan();
+				}
+			});
+
 		}
 
 		// This adds a simple command that can be triggered anywhere
@@ -235,6 +259,16 @@ class SampleSettingTab extends PluginSettingTab {
 				.setValue(this.plugin.settings.autoOpen)
 				.onChange(async value => {
 					this.plugin.settings.autoOpen = value;
+					await this.plugin.saveSettings();
+				}));
+
+		new Setting(containerEl)
+			.setName('Fetch on open')
+			.setDesc('Fetches the mensaplan if no Mensaplan file from today has been found on opening obsidian')
+			.addToggle(cp => cp
+				.setValue(this.plugin.settings.fetchOnFirstOpen)
+				.onChange(async value => {
+					this.plugin.settings.fetchOnFirstOpen = value;
 					await this.plugin.saveSettings();
 				}));
 
