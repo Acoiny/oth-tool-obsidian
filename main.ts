@@ -142,7 +142,7 @@ export default class OthTool extends Plugin {
 
 	fetchMensaplan() {
 		const pythonPath = this.settings.pythonPath;
-		const mensaplan = this.settings.mensaplanFile;
+		const mensaplan = this.settings.mensaplanFile.endsWith('.md') ? this.settings.mensaplanFile : this.settings.mensaplanFile + '.md';
 
 		const cmd = `"${pythonPath}" "${this.oth_tool_repo_path + '/oth_tool.py'}" m -mt > "${this.vault_base_path + '/' + mensaplan}"`
 		console.log("Executing: ", cmd);
