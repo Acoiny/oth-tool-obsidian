@@ -1,0 +1,11 @@
+{
+	"id": "oth-tool",
+	"name": "OTH Tool",
+	"version": "1.0.0",
+	"minAppVersion": "0.15.0",
+	"description": "Displays the OTH's mensaplan inside Obsidian",
+	"author": "Acoiny",
+	"authorUrl": "",
+	"fundingUrl": "",
+	"isDesktopOnly": false
+}
