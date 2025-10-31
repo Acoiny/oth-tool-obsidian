@@ -166,7 +166,7 @@ export default class OthTool extends Plugin {
 
 	fetchMensaplan() {
 		const pythonPath = this.settings.pythonPath;
-		const mensaplan = this.settings.mensaplanFile.endsWith('.md') ? this.settings.mensaplanFile : this.settings.mensaplanFile + '.md';
+		const mensaplan = this.settings.mensaplanFile;
 
 		const cmd = `"${pythonPath}" "${this.oth_tool_repo_path + '/oth_tool.py'}" m -mt > "${this.vault_base_path + '/' + mensaplan}"`
 		console.log("Executing: ", cmd);
@@ -279,6 +279,9 @@ class SampleSettingTab extends PluginSettingTab {
 				.setPlaceholder('Mensaplan.md')
 				.setValue(this.plugin.settings.mensaplanFile)
 				.onChange(async (value) => {
+					// make sure the value path ends with '.md'
+					if (!value.endsWith('.md'))
+						value += '.md';
 					this.plugin.settings.mensaplanFile = value;
 					await this.plugin.saveSettings();
 				}));
