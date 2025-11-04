@@ -1,7 +1,8 @@
 import { App, Editor, FileSystemAdapter, MarkdownView, Modal, Notice, Plugin, PluginSettingTab, Setting, TFile } from 'obsidian';
 
-import { exec } from 'child_process';
+import { exec, execSync } from 'child_process';
 import { existsSync, rm, stat } from 'fs';
+import { platform } from 'os';
 
 // Remember to rename these classes and interfaces!
 
@@ -12,6 +13,7 @@ interface MyPluginSettings {
 	cloneRepo: boolean;
 	autoOpen: boolean; // automatically open the mensaplan after pulling it
 	fetchOnFirstOpen: boolean; // fetch the mensaplan, if no mensaplan file from today has been found
+	createVenv: boolean; // if true, creates a virtual environment inside the pulled tool
 }
 
 
@@ -23,6 +25,7 @@ const DEFAULT_SETTINGS: MyPluginSettings = {
 	cloneRepo: false,
 	autoOpen: true,
 	fetchOnFirstOpen: false,
+	createVenv: false,
 }
 
 export default class OthTool extends Plugin {
@@ -57,30 +60,44 @@ export default class OthTool extends Plugin {
 				if (err) {
 					// file doesn't exist!
 					console.log(err);
-					this.fetchMensaplan();
+					this.fetchMensaplan('today');
 					return;
 				}
 
 				const today = new Date();
-				const acc = stats.mtime;
+				const modTime = stats.mtime;
 
-				if (!(today.getFullYear() == acc.getFullYear() &&
-					today.getMonth() == acc.getMonth() &&
-					today.getDate() == acc.getDate())) {
+				if (!(today.getFullYear() == modTime.getFullYear() &&
+					today.getMonth() == modTime.getMonth() &&
+					today.getDate() == modTime.getDate())) {
 					// NOT on the same day!
-					this.fetchMensaplan();
+					this.fetchMensaplan('today');
 				}
 			});
 
 		}
 
-		// This adds a simple command that can be triggered anywhere
 		this.addCommand({
-			id: 'fetch-oth-mensaplan',
-			name: 'Fetch OTH-Mensaplan',
+			id: 'fetch-oth-mensaplan-today',
+			name: 'Fetch today\'s OTH- Mensaplan',
 			callback: () => {
-				this.fetchMensaplan();
-				//new ErrorModal(this.app, "Unable to fetch mensaplan").open();
+				this.fetchMensaplan('today');
+			}
+		});
+
+		this.addCommand({
+			id: 'fetch-oth-mensaplan-week',
+			name: 'Fetch this week\'s OTH- Mensaplan',
+			callback: () => {
+				this.fetchMensaplan('week');
+			}
+		});
+
+		this.addCommand({
+			id: 'fetch-oth-mensaplan-next-week',
+			name: 'Fetch next week\'s OTH- Mensaplan',
+			callback: () => {
+				this.fetchMensaplan('nextWeek');
 			}
 		});
 
@@ -105,19 +122,7 @@ export default class OthTool extends Plugin {
 			}
 		});
 
-		// TODO: add command to pull mensaplan AND directly open it
-
-		// This adds a settings tab so the user can configure various aspects of the plugin
 		this.addSettingTab(new SampleSettingTab(this.app, this));
-
-		// If the plugin hooks up any global DOM events (on parts of the app that doesn't belong to this plugin)
-		// Using this function will automatically remove the event listener when this plugin is disabled.
-		// this.registerDomEvent(document, 'click', (evt: MouseEvent) => {
-		// 	console.log('click', evt);
-		// });
-
-		// When registering intervals, this function will automatically clear the interval when the plugin is disabled.
-		// this.registerInterval(window.setInterval(() => console.log('setInterval'), 5 * 60 * 1000));
 	}
 
 	onunload() {
@@ -164,11 +169,21 @@ export default class OthTool extends Plugin {
 		// now create the venv
 	}
 
-	fetchMensaplan() {
-		const pythonPath = this.settings.pythonPath;
+	fetchMensaplan(mode: 'today' | 'week' | 'nextWeek') {
+		let pythonPath = this.settings.pythonPath;
+
+		if (this.settings.createVenv) {
+			pythonPath = this.getVenvPath();
+		}
+
 		const mensaplan = this.settings.mensaplanFile;
 
-		const cmd = `"${pythonPath}" "${this.oth_tool_repo_path + '/oth_tool.py'}" m -mt > "${this.vault_base_path + '/' + mensaplan}"`
+		const time_flag = mode === 'today' ?
+			'-t' :
+			(mode === 'nextWeek' ?
+				'-n' : '');
+
+		const cmd = `"${pythonPath}" "${this.oth_tool_repo_path + '/oth_tool.py'}" m -m ${time_flag} > "${this.vault_base_path + '/' + mensaplan}"`
 		console.log("Executing: ", cmd);
 		exec(cmd, (error, stdout, stderr) => {
 			if (error) {
@@ -186,6 +201,46 @@ export default class OthTool extends Plugin {
 					this.app.workspace.openLinkText(this.settings.mensaplanFile, '', false);
 			}
 		});
+	}
+
+	private createVenv() {
+		const osPrefix = platform() === 'win32' ?
+			'/Scripts' :
+			'/bin';
+		const path = this.oth_tool_repo_path + '/venv';
+
+		const pipPath = path + osPrefix + '/pip';
+		const pythonPath = path + osPrefix + '/python3';
+
+		if (!existsSync(path)) {
+			console.log("Venv doesn't exist, executing:" + `cd ${this.oth_tool_repo_path} &&\
+					python -m venv venv &&\
+					${pipPath} install -r ${this.oth_tool_repo_path + '/requirements.txt'}`);
+			const res = execSync(`cd ${this.oth_tool_repo_path} &&\
+					python -m venv venv &&\
+					${pipPath} install -r ${this.oth_tool_repo_path + '/requirements.txt'}`);
+		}
+	}
+
+	/**
+	* Creates the venv if not present and then returns the path
+	* to the python interpreter inside the venv
+	*/
+	getVenvPath(): string {
+		const osPrefix = platform() === 'win32' ?
+			'/Scripts' :
+			'/bin';
+		const path = this.oth_tool_repo_path + '/venv';
+
+		// creating the virtual environment if not present
+		try {
+			this.createVenv();
+		} catch (ex) {
+			new OthToolModal(this.app, `Unable to create venv: ${ex}`).open();
+			return '';
+		}
+
+		return path + osPrefix + '/python3';
 	}
 
 	async loadSettings() {
@@ -269,6 +324,16 @@ class SampleSettingTab extends PluginSettingTab {
 				.setValue(this.plugin.settings.fetchOnFirstOpen)
 				.onChange(async value => {
 					this.plugin.settings.fetchOnFirstOpen = value;
+					await this.plugin.saveSettings();
+				}));
+
+		new Setting(containerEl)
+			.setName('Use virtual environment')
+			.setDesc('If true, the tool creates and uses a virtual environment')
+			.addToggle(cp => cp
+				.setValue(this.plugin.settings.createVenv)
+				.onChange(async value => {
+					this.plugin.settings.createVenv = value;
 					await this.plugin.saveSettings();
 				}));
 
