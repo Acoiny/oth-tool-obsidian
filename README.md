@@ -1,15 +1,9 @@
 # OTH-Tool Obsidian Plugin
-This plugin integrates the [oth-scrape-tool](https://github.com/Acoiny/oth-scrape-tool)
-into obsidian. It can automatically get the tool and then executes
-the tool and dumps the mensaplan into a specified file.
+This plugin implements a part the [oth-scrape-tool](https://github.com/Acoiny/oth-scrape-tool)
+into obsidian. It is able to fetch the mensaplan and output it into a configurable
+file inside the obsidian vault.
 
 ## Configuration
-The tool contains some settings, the python3 executable's path has to be
-manually set to a `python3` executable, that has access to the
-`request` and `BeautifulSoup4` packages. It can be the executable
-in a virtual environment.
-
-## Future plans
-- Make the tool automatically generate a virtual environment inside the pulled folder and use that python executable.
-- allow selection of today or whole week
-- execute tool when opening obsidian for the first time of the day and display file
+The tool contains a few simple settings, it can automatically open the file
+after getting the mensaplan and it is able to automatically get the mensaplan
+if the file is not present or not from today when opening obsidian.
