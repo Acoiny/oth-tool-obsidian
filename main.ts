@@ -13,10 +13,6 @@ import {
 	requestUrl,
 } from "obsidian";
 
-import * as cheerio from "cheerio";
-
-import { stat } from "fs";
-
 import { getWeekDates, Mensaplan } from "Mensaplan";
 
 // Remember to rename these classes and interfaces!
@@ -51,31 +47,35 @@ export default class OthTool extends Plugin {
 		this.vault_base_path = vaultPath;
 
 		if (this.settings.fetchOnFirstOpen) {
-			stat(
-				this.vault_base_path + "/" + this.settings.mensaplanFile,
-				(err, stats) => {
-					if (err) {
-						// file doesn't exist!
-						console.log(err);
-						this.fetchMensaplan("today");
-						return;
-					}
+			// Use Obsidian's API instead of fs.stat
+			const file = this.app.vault.getAbstractFileByPath(
+				this.settings.mensaplanFile
+			);
 
+			if (file instanceof TFile) {
+				const stats = await this.app.vault.adapter.stat(
+					normalizePath(this.settings.mensaplanFile)
+				);
+
+				if (stats) {
 					const today = new Date();
-					const modTime = stats.mtime;
+					const modTime = new Date(stats.mtime);
 
 					if (
 						!(
-							today.getFullYear() == modTime.getFullYear() &&
-							today.getMonth() == modTime.getMonth() &&
-							today.getDate() == modTime.getDate()
+							today.getFullYear() === modTime.getFullYear() &&
+							today.getMonth() === modTime.getMonth() &&
+							today.getDate() === modTime.getDate()
 						)
 					) {
 						// NOT on the same day!
 						this.fetchMensaplan("today");
 					}
 				}
-			);
+			} else {
+				// File doesn't exist
+				this.fetchMensaplan("today");
+			}
 		}
 
 		this.addCommand({
