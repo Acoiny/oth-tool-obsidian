@@ -100,10 +100,11 @@ export class Mensaplan {
 
 				console.log(name, preise, img_url);
 
-				day.add_meal(
-					new Meal(name, preise, img_url),
-					current_meal_type
-				);
+				if (day)
+					day.add_meal(
+						new Meal(name, preise, img_url),
+						current_meal_type
+					);
 			}
 		});
 	}
