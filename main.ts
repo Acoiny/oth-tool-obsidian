@@ -57,20 +57,6 @@ export default class OthTool extends Plugin {
 		}
 
 		this.addCommand({
-			id: "DEBUG-check-file-date",
-			name: "DEBUG: Check mensaplan file date",
-			callback: () => {
-				this.isFileOlderThanToday(this.settings.mensaplanFile).then(
-					(value) => {
-						new Notice(
-							"Is mensaplan file older than today? " + value
-						);
-					}
-				);
-			},
-		});
-
-		this.addCommand({
 			id: "fetch-oth-mensaplan-today",
 			name: "Fetch today's OTH- Mensaplan",
 			callback: () => {
