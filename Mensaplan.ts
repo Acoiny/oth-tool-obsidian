@@ -18,7 +18,7 @@ export function getWeekDates(useNextWeek = false): Date[] {
 	// Get Monday of the target week
 	const monday = new Date(today);
 	monday.setDate(today.getDate() + daysToMonday + (useNextWeek ? 7 : 0));
-	monday.setHours(0, 0, 0, 0); // Reset time to midnight
+	monday.setHours(12, 0, 0, 0);
 
 	// Generate Monday through Friday
 	const dates: Date[] = [];
@@ -98,8 +98,6 @@ export class Mensaplan {
 					if (src) img_url = this.base_url + src;
 				}
 
-				console.log(name, preise, img_url);
-
 				if (day)
 					day.add_meal(
 						new Meal(name, preise, img_url),
@@ -107,6 +105,8 @@ export class Mensaplan {
 					);
 			}
 		});
+
+		console.log("Fetched mensaplan for ", date.toDateString());
 	}
 
 	to_markdown_str(): string {

@@ -123,8 +123,6 @@ export default class OthTool extends Plugin {
 				break;
 		}
 
-		new Notice("Fetching Mensaplan...");
-
 		for (const date of days) {
 			try {
 				new Notice("Fetching mensaplan for " + date.toDateString());
