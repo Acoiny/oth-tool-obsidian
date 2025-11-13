@@ -47,36 +47,28 @@ export default class OthTool extends Plugin {
 		this.vault_base_path = vaultPath;
 
 		if (this.settings.fetchOnFirstOpen) {
-			// Use Obsidian's API instead of fs.stat
-			const file = this.app.vault.getAbstractFileByPath(
-				this.settings.mensaplanFile
-			);
-
-			if (file instanceof TFile) {
-				const stats = await this.app.vault.adapter.stat(
-					normalizePath(this.settings.mensaplanFile)
-				);
-
-				if (stats) {
-					const today = new Date();
-					const modTime = new Date(stats.mtime);
-
-					if (
-						!(
-							today.getFullYear() === modTime.getFullYear() &&
-							today.getMonth() === modTime.getMonth() &&
-							today.getDate() === modTime.getDate()
-						)
-					) {
-						// NOT on the same day!
-						this.fetchMensaplan("today");
+			this.app.workspace.onLayoutReady(() => {
+				this.isFileOlderThanToday(this.settings.mensaplanFile).then(
+					(isOlder) => {
+						if (isOlder) this.fetchMensaplan("today");
 					}
-				}
-			} else {
-				// File doesn't exist
-				this.fetchMensaplan("today");
-			}
+				);
+			});
 		}
+
+		this.addCommand({
+			id: "DEBUG-check-file-date",
+			name: "DEBUG: Check mensaplan file date",
+			callback: () => {
+				this.isFileOlderThanToday(this.settings.mensaplanFile).then(
+					(value) => {
+						new Notice(
+							"Is mensaplan file older than today? " + value
+						);
+					}
+				);
+			},
+		});
 
 		this.addCommand({
 			id: "fetch-oth-mensaplan-today",
@@ -154,6 +146,41 @@ export default class OthTool extends Plugin {
 			.catch((err) => {
 				new Notice("Failed to save Mensaplan: " + err);
 			});
+	}
+
+	async isFileOlderThanToday(path: string): Promise<boolean> {
+		// Use Obsidian's API instead of fs.stat
+		const file = this.app.vault.getAbstractFileByPath(
+			this.settings.mensaplanFile
+		);
+
+		if (file instanceof TFile) {
+			const stats = await this.app.vault.adapter.stat(
+				normalizePath(this.settings.mensaplanFile)
+			);
+
+			if (stats) {
+				const today = new Date();
+				const modTime = new Date(stats.mtime);
+
+				if (
+					!(
+						today.getFullYear() === modTime.getFullYear() &&
+						today.getMonth() === modTime.getMonth() &&
+						today.getDate() === modTime.getDate()
+					)
+				) {
+					// NOT on the same day!
+					console.log("File is older than today.");
+					return true;
+				}
+			}
+		} else {
+			// File doesn't exist
+			return true;
+		}
+
+		return false;
 	}
 
 	async loadSettings() {

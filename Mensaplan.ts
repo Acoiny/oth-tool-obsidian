@@ -105,8 +105,6 @@ export class Mensaplan {
 					);
 			}
 		});
-
-		console.log("Fetched mensaplan for ", date.toDateString());
 	}
 
 	to_markdown_str(): string {
