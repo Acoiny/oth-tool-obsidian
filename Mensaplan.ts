@@ -34,20 +34,32 @@ export function getWeekDates(useNextWeek = false): Date[] {
 export class Mensaplan {
 	readonly url: string;
 	readonly base_url: string;
+	readonly fetch_abendmensa: boolean;
 	days: Map<Date, Weekday>;
 
-	constructor(base_url: string, rest_url: string) {
+	constructor(base_url: string, rest_url: string, fetch_abendmensa: boolean = false) {
 		this.base_url = base_url;
 		this.url = base_url + rest_url;
+		this.fetch_abendmensa = fetch_abendmensa;
 		this.days = new Map();
 	}
 
-	async fetchDay(date: Date) {
+	// true, if the whole day has no mensaplan items
+	isEmpty(): boolean {
+		for (const [_, day] of this.days) {
+			if (!day.isEmpty())
+				return false;
+		}
+
+		return true;
+	}
+
+	async fetchDay(date: Date, evening: boolean = false) {
 		const data = {
 			date: date.toISOString().split("T")[0],
 			func: "make_spl",
 			lang: "de",
-			locId: "HS-R-tag",
+			locId: evening ? "HS-R-abend" : "HS-R-tag",
 			w: "",
 		};
 

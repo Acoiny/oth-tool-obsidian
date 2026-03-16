@@ -21,13 +21,16 @@ interface MyPluginSettings {
 	mensaplanFile: string;
 	autoOpen: boolean; // automatically open the mensaplan after pulling it
 	fetchOnFirstOpen: boolean; // fetch the mensaplan, if no mensaplan file from today has been found
+	fetchAbendmensa: boolean;
 }
 
 const DEFAULT_SETTINGS: MyPluginSettings = {
 	mensaplanFile: "Mensaplan.md",
 	autoOpen: true,
 	fetchOnFirstOpen: false,
+	fetchAbendmensa: false,
 };
+
 const BASE_URL = "https://stwno.de/infomax/daten-extern/html/";
 
 const REST_URL = "speiseplan-render.php";
@@ -48,7 +51,7 @@ export default class OthTool extends Plugin {
 
 		if (this.settings.fetchOnFirstOpen) {
 			this.app.workspace.onLayoutReady(() => {
-				this.isFileOlderThanToday(this.settings.mensaplanFile).then(
+				this.isMensaFileOlderThanToday().then(
 					(isOlder) => {
 						if (isOlder) this.fetchMensaplan("today");
 					}
@@ -83,7 +86,7 @@ export default class OthTool extends Plugin {
 		this.addSettingTab(new SampleSettingTab(this.app, this));
 	}
 
-	onunload() {}
+	onunload() { }
 
 	async fetchMensaplan(mode: "today" | "week" | "nextWeek") {
 		const mensaplan = new Mensaplan(BASE_URL, REST_URL);
@@ -108,11 +111,31 @@ export default class OthTool extends Plugin {
 			} catch (e) {
 				new Notice(
 					"Failed to fetch mensaplan for " +
+					date.toDateString() +
+					": " +
+					e
+				);
+			}
+
+			// same for the evening mensa
+			if (this.settings.fetchAbendmensa) {
+				try {
+					new Notice("Fetching evening mensaplan for " + date.toDateString());
+					await mensaplan.fetchDay(date, true);
+				} catch (e) {
+					new Notice(
+						"Failed to fetch mensaplan for " +
 						date.toDateString() +
 						": " +
 						e
-				);
+					);
+				}
 			}
+		}
+
+		if (mensaplan.isEmpty()) {
+			new Notice("Mensaplan contains no items!");
+			return;
 		}
 
 		const content = mensaplan.to_markdown_str();
@@ -134,7 +157,7 @@ export default class OthTool extends Plugin {
 			});
 	}
 
-	async isFileOlderThanToday(path: string): Promise<boolean> {
+	async isMensaFileOlderThanToday(): Promise<boolean> {
 		// Use Obsidian's API instead of fs.stat
 		const file = this.app.vault.getAbstractFileByPath(
 			this.settings.mensaplanFile
@@ -251,6 +274,20 @@ class SampleSettingTab extends PluginSettingTab {
 						// make sure the value path ends with '.md'
 						if (!value.endsWith(".md")) value += ".md";
 						this.plugin.settings.mensaplanFile = value;
+						await this.plugin.saveSettings();
+					})
+			);
+
+		new Setting(containerEl)
+			.setName("Evening Mensa")
+			.setDesc(
+				"Fetch the mensaplan for the evening as well"
+			)
+			.addToggle((cp) =>
+				cp
+					.setValue(this.plugin.settings.fetchOnFirstOpen)
+					.onChange(async (value) => {
+						this.plugin.settings.fetchAbendmensa = value;
 						await this.plugin.saveSettings();
 					})
 			);

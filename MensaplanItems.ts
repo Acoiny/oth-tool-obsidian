@@ -26,6 +26,7 @@ export class Weekday {
 	hauptspeisen: Meal[];
 	beilagen: Meal[];
 	nachspeisen: Meal[];
+	abendgerichte: Meal[];
 
 	constructor(date: Date) {
 		this.date = date;
@@ -33,6 +34,15 @@ export class Weekday {
 		this.hauptspeisen = [];
 		this.beilagen = [];
 		this.nachspeisen = [];
+		this.abendgerichte = [];
+	}
+
+	public isEmpty(): boolean {
+		return !(this.suppen.length > 0 ||
+			this.hauptspeisen.length > 0 ||
+			this.beilagen.length > 0 ||
+			this.nachspeisen.length > 0 ||
+			this.abendgerichte.length > 0);
 	}
 
 	add_meal(meal: Meal, meal_type: string) {
@@ -49,6 +59,9 @@ export class Weekday {
 			case "nachspeisen":
 				this.nachspeisen.push(meal);
 				break;
+			case "abendgerichte":
+				this.abendgerichte.push(meal);
+				break;
 			default:
 				throw new Error(`Unknown meal type: ${meal_type}`);
 		}
@@ -59,27 +72,47 @@ export class Weekday {
 		res += "|--------|------|----------------|------------------|------------|\n";
 		return res;
 	}
-	
+
 	to_markdown_str(): string {
-		let res = "## Suppen\n";
-		res += this.get_markdown_table_header();
-		for (const su of this.suppen) {
-			res += `${su.to_markdown()}\n`;
+		let res = "";
+
+		if (this.suppen.length > 0) {
+			res += "## Suppen\n";
+			res += this.get_markdown_table_header();
+			for (const su of this.suppen) {
+				res += `${su.to_markdown()}\n`;
+			}
 		}
-		res += "## Beilagen\n";
-		res += this.get_markdown_table_header();
-		for (const vs of this.beilagen) {
-			res += `${vs.to_markdown()}\n`;
+
+		if (this.beilagen.length > 0) {
+			res += "## Beilagen\n";
+			res += this.get_markdown_table_header();
+			for (const vs of this.beilagen) {
+				res += `${vs.to_markdown()}\n`;
+			}
 		}
-		res += "## Hauptspeisen\n";
-		res += this.get_markdown_table_header();
-		for (const hs of this.hauptspeisen) {
-			res += `${hs.to_markdown()}\n`;
+		if (this.hauptspeisen.length > 0) {
+			res += "## Hauptspeisen\n";
+			res += this.get_markdown_table_header();
+			for (const hs of this.hauptspeisen) {
+				res += `${hs.to_markdown()}\n`;
+			}
 		}
-		res += "## Nachspeisen\n";
-		res += this.get_markdown_table_header();
-		for (const ns of this.nachspeisen) {
-			res += `${ns.to_markdown()}\n`;
+
+		if (this.nachspeisen.length > 0) {
+			res += "## Nachspeisen\n";
+			res += this.get_markdown_table_header();
+			for (const ns of this.nachspeisen) {
+				res += `${ns.to_markdown()}\n`;
+			}
+		}
+
+		if (this.abendgerichte.length > 0) {
+			res += "## Abengerichte\n";
+			res += this.get_markdown_table_header();
+			for (const ns of this.abendgerichte) {
+				res += `${ns.to_markdown()}\n`;
+			}
 		}
 
 		return res;
